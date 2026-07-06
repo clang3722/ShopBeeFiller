@@ -1,6 +1,3 @@
-直接给你完整的，复制全部内容，一次性粘贴到 README.md：
-
-```markdown
 # ShopBeeFiller
 
 > 店小蜜批量编辑商品自动填充表格 · Chrome 扩展
@@ -205,16 +202,3 @@ CC BY 4.0 —— 署名后可自由修改、分发、商用。
 Made with ❤️ by LanMay Studio
 
 ```
-
----
-
-## ✅ 操作步骤
-
-1. 选中上面的**全部内容**（从 `# ShopBeeFiller` 到 `Made with ❤️ by LanMay Studio`）
-2. `Ctrl+C` 复制
-3. 打开项目中的 `README.md` 文件
-4. `Ctrl+A` 全选，`Ctrl+V` 粘贴
-5. `Ctrl+S` 保存
-6. 提交到 GitHub
-
-完整无截断，一次搞定！🚀
