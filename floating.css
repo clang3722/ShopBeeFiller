@@ -1,0 +1,268 @@
+/* floating.css - 店小蜜悬浮助手 */
+.dxm-float-btn {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 999999;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4CAF50, #2E7D32);
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 20px rgba(76, 175, 80, 0.4);
+  cursor: pointer;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.dxm-float-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 30px rgba(76, 175, 80, 0.5);
+}
+
+.dxm-float-btn .badge-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ff9800;
+  font-size: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: bold;
+}
+
+.dxm-float-panel {
+  position: fixed;
+  top: 145px;
+  right: 20px;
+  z-index: 999998;
+  width: 420px;
+  max-height: 75vh;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+  animation: slideIn 0.25s ease;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-10px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.dxm-float-panel.open {
+  display: flex;
+}
+
+.dxm-float-panel .panel-header {
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  cursor: grab;
+  user-select: none;
+}
+
+.dxm-float-panel .panel-header:active {
+  cursor: grabbing;
+}
+
+.dxm-float-panel .panel-header .title {
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dxm-float-panel .panel-header .title .badge {
+  font-size: 9px;
+  background: #4CAF50;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-weight: normal;
+}
+
+.dxm-float-panel .panel-header .close-btn {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  font-size: 20px;
+  padding: 0 6px;
+  transition: 0.2s;
+}
+
+.dxm-float-panel .panel-header .close-btn:hover {
+  color: #fff;
+}
+
+.dxm-float-panel .panel-body {
+  padding: 14px 16px;
+  overflow-y: auto;
+  flex: 1;
+  background: #f8f9fa;
+  max-height: 55vh;
+}
+
+.dxm-float-panel .panel-body::-webkit-scrollbar {
+  width: 4px;
+}
+.dxm-float-panel .panel-body::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+.dxm-float-panel .form-group {
+  margin-bottom: 8px;
+}
+
+.dxm-float-panel .form-group label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 2px;
+}
+
+.dxm-float-panel .form-group input,
+.dxm-float-panel .form-group select {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 12px;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.dxm-float-panel .form-group input[type="file"] {
+  padding: 3px 0;
+  border: none;
+  background: transparent;
+}
+
+.dxm-float-panel .form-row {
+  display: flex;
+  gap: 10px;
+}
+
+.dxm-float-panel .form-row .form-group {
+  flex: 1;
+}
+
+.dxm-float-panel .btn-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.dxm-float-panel .btn {
+  flex: 1;
+  padding: 6px 0;
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.dxm-float-panel .btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.dxm-float-panel .btn-start {
+  background: #4CAF50;
+  color: #fff;
+}
+.dxm-float-panel .btn-start:hover:not(:disabled) {
+  background: #43a047;
+}
+
+.dxm-float-panel .btn-pause {
+  background: #ff9800;
+  color: #fff;
+}
+.dxm-float-panel .btn-pause:hover:not(:disabled) {
+  background: #f57c00;
+}
+
+.dxm-float-panel .btn-stop {
+  background: #f44336;
+  color: #fff;
+}
+.dxm-float-panel .btn-stop:hover:not(:disabled) {
+  background: #d32f2f;
+}
+
+.dxm-float-panel .status-bar {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #666;
+  margin-top: 6px;
+  padding: 3px 0;
+}
+
+.dxm-float-panel .status-bar .status {
+  font-weight: 600;
+}
+.dxm-float-panel .status-bar .status.running {
+  color: #4CAF50;
+}
+.dxm-float-panel .status-bar .status.paused {
+  color: #ff9800;
+}
+.dxm-float-panel .status-bar .status.stopped {
+  color: #f44336;
+}
+
+.dxm-float-panel #dxmLogArea {
+  margin-top: 8px;
+  padding: 6px 8px;
+  background: #1a1a2e;
+  color: #00ff88;
+  font-family: 'Consolas', monospace;
+  font-size: 10px;
+  border-radius: 5px;
+  height: 90px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.dxm-float-panel #dxmLogArea .error { color: #ff6b6b; }
+.dxm-float-panel #dxmLogArea .success { color: #69db7c; }
+.dxm-float-panel #dxmLogArea .info { color: #74c0fc; }
+.dxm-float-panel #dxmLogArea .warn { color: #ffd93d; }
+
+.dxm-float-panel .footer {
+  text-align: center;
+  font-size: 9px;
+  color: #999;
+  padding-top: 6px;
+  border-top: 1px solid #eee;
+  margin-top: 6px;
+}
+
+.dxm-float-panel .footer strong {
+  color: #666;
+}
