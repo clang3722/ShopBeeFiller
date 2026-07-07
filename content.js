@@ -1,4 +1,4 @@
-// content.js - v2.8.3
+// content.js - v2.9
 // (c) 2026 LanMay Studio · clang
 // License: CC BY 4.0
 
@@ -15,6 +15,11 @@
   let isStopped = false;
   let totalCount = 0;
   let THRESHOLD = 80;
+  
+  // 断点续填相关
+  let currentRowIndex = 0;
+  let startRow = 1;
+  let rowsData = [];
 
   function contentLog(message, type = 'info') {
     const time = new Date().toLocaleTimeString();
@@ -32,12 +37,17 @@
       isPaused = false;
       isStopped = false;
       THRESHOLD = message.data.threshold || 80;
-      contentLog('收到指令: ' + message.data.rows.length + ' 行');
+      startRow = message.data.startRow || 1;
+      rowsData = message.data.rows;
+      currentRowIndex = startRow - 1;
+      
+      contentLog('收到指令: ' + rowsData.length + ' 行');
       contentLog('⚡ 动态阈值: ' + THRESHOLD);
+      contentLog('📍 起始行: ' + startRow);
       
       (async () => {
         try {
-          const result = await fillAllProducts(message.data.rows, message.data.rate, message.data.interval);
+          const result = await fillAllProducts(rowsData, message.data.rate, message.data.interval);
           sendResponse(result);
         } catch (err) {
           contentLog('异常: ' + err.message, 'error');
@@ -49,21 +59,22 @@
     
     if (message.action === 'pause') {
       isPaused = true;
-      contentLog('已暂停', 'warn');
+      contentLog('⏸ 已暂停 [行' + (currentRowIndex + 1) + ']', 'warn');
       sendResponse({ success: true });
       return true;
     }
     
     if (message.action === 'resume') {
       isPaused = false;
-      contentLog('已继续');
+      contentLog('▶ 已继续 [从行' + (currentRowIndex + 1) + ' 恢复]');
       sendResponse({ success: true });
       return true;
     }
     
     if (message.action === 'stop') {
       isStopped = true;
-      contentLog('已停止', 'warn');
+      isPaused = false;
+      contentLog('⏹ 已停止 [行' + (currentRowIndex + 1) + ']', 'warn');
       sendResponse({ success: true });
       return true;
     }
@@ -122,22 +133,20 @@
   }
 
   // ============================================================
-  // 数量提取：量词优先，就近查找数字
+  // 数量提取（不区分大小写 + 末尾数字）
   // ============================================================
 
   function extractQuantity(name) {
-    // 量词列表（按长度降序排列，优先匹配多字符量词）
-    const units = ['pcs','PCS','pCs','pcS','Pcs','PCs','PcS','P','p', '个', '件', '套', '包', '只', '对', '盒', '枚', '条', '根', '块', '片'];
+    const units = ['pcs', '个', '件', '套', '包', '只', '对', '盒', '枚', '条', '根', '块', '片'];
     
-    // 在变种名称中查找量词的位置
     let bestUnit = null;
     let bestIndex = -1;
     let bestUnitLength = 0;
     
     for (const unit of units) {
+      // 不区分大小写查找
       let index = name.toLowerCase().indexOf(unit.toLowerCase());
       if (index !== -1) {
-        // 如果有多个量词，取最后一个（数量通常在末尾）
         let lastIndex = name.toLowerCase().lastIndexOf(unit.toLowerCase());
         if (lastIndex > bestIndex) {
           bestIndex = lastIndex;
@@ -147,64 +156,64 @@
       }
     }
     
-    // 如果没有找到任何量词，返回1（无数量）
-    if (bestUnit === null || bestIndex === -1) {
-      return 1;
-    }
-    
-    // 以量词为中心，向左右扩展查找数字
-    let numberStr = '';
-    let foundNumber = false;
-    
-    // 先向左查找（量词前面的数字，如 "200pcs"）
-    let leftIndex = bestIndex - 1;
-    let leftDigits = '';
-    while (leftIndex >= 0) {
-      const char = name[leftIndex];
-      if (char >= '0' && char <= '9') {
-        leftDigits = char + leftDigits;
-        leftIndex--;
-        foundNumber = true;
-      } else if (char === '.' || char === ' ') {
-        // 跳过空格和小数点
-        leftIndex--;
-        continue;
-      } else {
-        break;
+    if (bestUnit !== null && bestIndex !== -1) {
+      let foundNumber = false;
+      
+      // 向左查找
+      let leftIndex = bestIndex - 1;
+      let leftDigits = '';
+      while (leftIndex >= 0) {
+        const char = name[leftIndex];
+        if (char >= '0' && char <= '9') {
+          leftDigits = char + leftDigits;
+          leftIndex--;
+          foundNumber = true;
+        } else if (char === ',' || char === ' ' || char === '(' || char === ')' || char === '-') {
+          leftIndex--;
+          continue;
+        } else {
+          break;
+        }
+      }
+      
+      if (foundNumber && leftDigits.length > 0) {
+        const num = parseInt(leftDigits, 10);
+        return num;
+      }
+      
+      // 向右查找
+      let rightIndex = bestIndex + bestUnitLength;
+      let rightDigits = '';
+      while (rightIndex < name.length) {
+        const char = name[rightIndex];
+        if (char >= '0' && char <= '9') {
+          rightDigits = rightDigits + char;
+          rightIndex++;
+          foundNumber = true;
+        } else if (char === ',' || char === ' ' || char === '(' || char === ')' || char === '-') {
+          rightIndex++;
+          continue;
+        } else {
+          break;
+        }
+      }
+      
+      if (foundNumber && rightDigits.length > 0) {
+        const num = parseInt(rightDigits, 10);
+        return num;
       }
     }
     
-    // 如果向左找到了数字，使用它
-    if (foundNumber && leftDigits.length > 0) {
-      const num = parseInt(leftDigits, 10);
-      contentLog('  提取数量: "' + leftDigits + '" ← 在 "' + bestUnit + '" 左侧');
-      return num;
-    }
-    
-    // 如果左边没找到，再向右查找（量词后面的数字，如 "pcs12"）
-    let rightIndex = bestIndex + bestUnitLength;
-    let rightDigits = '';
-    while (rightIndex < name.length) {
-      const char = name[rightIndex];
-      if (char >= '0' && char <= '9') {
-        rightDigits = rightDigits + char;
-        rightIndex++;
-        foundNumber = true;
-      } else if (char === '.' || char === ' ') {
-        rightIndex++;
-        continue;
-      } else {
-        break;
+    // 末尾数字（如 "黑色,2"）
+    const trailingNumber = name.match(/,(\d+)$|(\d+)$/);
+    if (trailingNumber) {
+      const num = parseInt(trailingNumber[1] || trailingNumber[2], 10);
+      if (num <= 200) {
+        contentLog('  检测到末尾数字: ' + num);
+        return num;
       }
     }
     
-    if (foundNumber && rightDigits.length > 0) {
-      const num = parseInt(rightDigits, 10);
-      contentLog('  提取数量: "' + rightDigits + '" → 在 "' + bestUnit + '" 右侧');
-      return num;
-    }
-    
-    // 左右都没找到数字，返回1
     return 1;
   }
 
@@ -237,156 +246,21 @@
   }
 
   // ============================================================
-  // 核心填写函数
-  // ============================================================
-
-  async function fillAllProducts(rows, rate, interval) {
-    try {
-      contentLog('查找商品表格...');
-      await sleep(500);
-      
-      const allRows = document.querySelectorAll('table tbody tr');
-      contentLog('总行数: ' + allRows.length);
-      
-      let dataRows = [];
-      for (const row of allRows) {
-        const cells = row.querySelectorAll('td');
-        const rowText = row.textContent || '';
-        
-        if (rowText.includes('增值服务') || rowText.includes('产品信息')) continue;
-        if (cells.length < 8) continue;
-        dataRows.push(row);
-      }
-      
-      contentLog('数据行数: ' + dataRows.length);
-      if (dataRows.length === 0) {
-        return { success: false, message: '未找到商品数据行' };
-      }
-      
-      let successCount = 0;
-      const totalProducts = Math.min(rows.length, dataRows.length);
-      
-      for (let i = 0; i < totalProducts; i++) {
-        if (isStopped) return { success: false, message: '已停止' };
-        while (isPaused) { await sleep(300); if (isStopped) return { success: false, message: '已停止' }; }
-        
-        const row = dataRows[i];
-        const cells = row.querySelectorAll('td');
-        const data = rows[i];
-        
-        const title = String(data[0] || '').trim();
-        const size = String(data[2] || '').trim();
-        const baseWeight = parseFloat(data[3]) || 0;
-        const basePrice = parseFloat(data[4]) || 0;
-        
-        if (!title) return { success: false, message: '第' + (i+1) + '行：标题为空' };
-        if (!size || !size.includes('*')) return { success: false, message: '第' + (i+1) + '行：尺寸格式错误' };
-        
-        const sizeParts = size.split('*').map(s => s.trim());
-        const length = sizeParts[0] || '0';
-        const width = sizeParts[1] || '0';
-        const height = sizeParts[2] || '0';
-        
-        const variants = getVariantsFromPage(row);
-        const variantCount = variants.length;
-        
-        contentLog('商品 ' + (i+1) + ': ' + title.substring(0, 20) + '... (' + variantCount + ' 个变种)');
-        
-        if (variantCount === 0) {
-          const finalWeight = fixWeight(baseWeight);
-          const finalPrice = calculateDynamicPrice(basePrice, rate);
-          if (cells[1]) await fillCell(cells[1], title);
-          if (cells[6]) await fillCell(cells[6], finalPrice);
-          if (cells[7]) await fillCell(cells[7], length);
-          if (cells[8]) await fillCell(cells[8], width);
-          if (cells[9]) await fillCell(cells[9], height);
-          if (cells[10]) await fillCell(cells[10], String(finalWeight));
-          successCount++;
-          contentLog('✅ 商品 ' + (i+1) + ' 完成（无变种）');
-          continue;
-        }
-        
-        const nameItems = cells[4]?.querySelectorAll('.variation-item') || [];
-        const priceItems = cells[6]?.querySelectorAll('.variation-item') || [];
-        const lengthItems = cells[7]?.querySelectorAll('.variation-item') || [];
-        const widthItems = cells[8]?.querySelectorAll('.variation-item') || [];
-        const heightItems = cells[9]?.querySelectorAll('.variation-item') || [];
-        const weightItems = cells[10]?.querySelectorAll('.variation-item') || [];
-        
-        const fixedBaseWeight = fixWeight(baseWeight);
-        
-        for (let v = 0; v < variants.length; v++) {
-          const variant = variants[v];
-          const quantity = variant.quantity;
-          
-          // ============================================================
-          // 价格计算逻辑
-          // ============================================================
-          
-          let variantPrice;
-          
-          // 检查变种名称是否有量词
-          const units = ['pcs', 'PCS', 'pCs', 'pcS', 'Pcs', 'PCs', 'PcS', '个', '件', '套', '包', '只', '对', '盒', '枚', '条', '根', '块', '片'];
-          
-          if (!hasUnit) {
-            // 没有量词，数量不参与计算
-            variantPrice = calculateDynamicPrice(basePrice, rate);
-            contentLog('  变种 ' + (v+1) + ' "' + variant.name + '" 无量词，数量不参与计算 → 价格=' + variantPrice);
-          } else if (quantity > 1) {
-            // 有量词，先计算带数量的价格
-            let calculatedWithQty = basePrice * quantity * rate;
-            // 如果带数量计算的结果 > 501，数量不参与计算
-            if (calculatedWithQty > 501) {
-              variantPrice = calculateDynamicPrice(basePrice, rate);
-              contentLog('  变种 ' + (v+1) + ' "' + variant.name + '" 数量计算后 > 501，数量不参与计算 → 价格=' + variantPrice);
-            } else {
-              variantPrice = calculateDynamicPrice(basePrice * quantity, rate);
-              contentLog('  变种 ' + (v+1) + ' "' + variant.name + '" 数量=' + quantity + ' → 价格=' + variantPrice);
-            }
-          } else {
-            // 无数量
-            variantPrice = calculateDynamicPrice(basePrice, rate);
-            contentLog('  变种 ' + (v+1) + ' "' + variant.name + '" 无数量 → 价格=' + variantPrice);
-          }
-          
-          try {
-            if (cells[1]) await fillCell(cells[1], title);
-            if (cells[7] && lengthItems[v]) await fillCell(lengthItems[v], length);
-            if (cells[8] && widthItems[v]) await fillCell(widthItems[v], width);
-            if (cells[9] && heightItems[v]) await fillCell(heightItems[v], height);
-            if (cells[6] && priceItems[v]) await fillCell(priceItems[v], variantPrice);
-            if (cells[10] && weightItems[v]) await fillCell(weightItems[v], String(fixedBaseWeight));
-            
-            successCount++;
-            contentLog('  ✅ 变种 ' + (v+1) + '/' + variants.length + ' 完成');
-            
-            chrome.runtime.sendMessage({
-              action: 'progress',
-              current: successCount,
-              total: totalProducts * 2
-            }).catch(() => {});
-            
-            await sleep(interval * 1000);
-          } catch (err) {
-            contentLog('  ❌ 变种 ' + (v+1) + ' 失败: ' + err.message, 'error');
-          }
-        }
-        contentLog('✅ 商品 ' + (i+1) + ' 完成 (' + variants.length + ' 个变种)');
-      }
-      
-      contentLog('🎉 所有商品填写完成，请手动点击"保存"按钮确认', 'success');
-      return { success: true, message: '完成 ' + successCount + ' 个变种，请手动保存' };
-    } catch (err) {
-      contentLog('❌ 异常: ' + err.message, 'error');
-      return { success: false, message: err.message };
-    }
-  }
-
-  // ============================================================
   // 单元格填写
   // ============================================================
 
   async function fillCell(cell, value) {
+    if (isStopped) {
+      throw new Error('已停止');
+    }
+    
+    while (isPaused) {
+      await sleep(200);
+      if (isStopped) {
+        throw new Error('已停止');
+      }
+    }
+    
     try {
       cell.scrollIntoView({ block: 'center' });
       await sleep(150);
@@ -421,12 +295,192 @@
   }
 
   // ============================================================
-  // 工具函数
+  // 核心填写函数
   // ============================================================
+
+  async function fillAllProducts(rows, rate, interval) {
+    try {
+      contentLog('查找商品表格...');
+      await sleep(500);
+      
+      const allRows = document.querySelectorAll('table tbody tr');
+      contentLog('总行数: ' + allRows.length);
+      
+      let dataRows = [];
+      for (const row of allRows) {
+        const cells = row.querySelectorAll('td');
+        const rowText = row.textContent || '';
+        
+        if (rowText.includes('增值服务') || rowText.includes('产品信息')) continue;
+        if (cells.length < 8) continue;
+        dataRows.push(row);
+      }
+      
+      contentLog('数据行数: ' + dataRows.length);
+      if (dataRows.length === 0) {
+        return { success: false, message: '未找到商品数据行' };
+      }
+      
+      // 从起始行开始
+      const startIdx = Math.max(0, Math.min(startRow - 1, rows.length - 1));
+      currentRowIndex = startIdx;
+      
+      let successCount = 0;
+      const totalProducts = rows.length;
+      
+      contentLog('📍 从第 ' + (currentRowIndex + 1) + ' 行开始填写');
+      
+      for (let i = currentRowIndex; i < totalProducts; i++) {
+        if (isStopped) {
+          contentLog('⏹ 检测到停止信号，中断执行', 'warn');
+          return { success: false, message: '已停止，完成 ' + successCount + ' 个' };
+        }
+        
+        while (isPaused) {
+          await sleep(300);
+          if (isStopped) {
+            return { success: false, message: '已停止，完成 ' + successCount + ' 个' };
+          }
+        }
+        
+        if (i >= dataRows.length) {
+          contentLog('⚠️ 页面行数不足，跳过第 ' + (i+1) + ' 行');
+          continue;
+        }
+        
+        const row = dataRows[i];
+        const cells = row.querySelectorAll('td');
+        const data = rows[i];
+        
+        const title = String(data[0] || '').trim();
+        const size = String(data[2] || '').trim();
+        const baseWeight = parseFloat(data[3]) || 0;
+        const basePrice = parseFloat(data[4]) || 0;
+        
+        if (!title) {
+          contentLog('⚠️ 第 ' + (i+1) + ' 行标题为空，跳过');
+          continue;
+        }
+        if (!size || !size.includes('*')) {
+          contentLog('⚠️ 第 ' + (i+1) + ' 行尺寸格式错误，跳过');
+          continue;
+        }
+        
+        const sizeParts = size.split('*').map(s => s.trim());
+        const length = sizeParts[0] || '0';
+        const width = sizeParts[1] || '0';
+        const height = sizeParts[2] || '0';
+        
+        const variants = getVariantsFromPage(row);
+        const variantCount = variants.length;
+        
+        contentLog('商品 ' + (i+1) + ': ' + title.substring(0, 20) + '... (' + variantCount + ' 个变种)');
+        currentRowIndex = i;
+        
+        if (variantCount === 0) {
+          if (isStopped) break;
+          const finalWeight = fixWeight(baseWeight);
+          const finalPrice = calculateDynamicPrice(basePrice, rate);
+          if (cells[1]) await fillCell(cells[1], title);
+          if (cells[6]) await fillCell(cells[6], finalPrice);
+          if (cells[7]) await fillCell(cells[7], length);
+          if (cells[8]) await fillCell(cells[8], width);
+          if (cells[9]) await fillCell(cells[9], height);
+          if (cells[10]) await fillCell(cells[10], String(finalWeight));
+          successCount++;
+          contentLog('✅ 商品 ' + (i+1) + ' 完成（无变种）');
+          continue;
+        }
+        
+        const nameItems = cells[4]?.querySelectorAll('.variation-item') || [];
+        const priceItems = cells[6]?.querySelectorAll('.variation-item') || [];
+        const lengthItems = cells[7]?.querySelectorAll('.variation-item') || [];
+        const widthItems = cells[8]?.querySelectorAll('.variation-item') || [];
+        const heightItems = cells[9]?.querySelectorAll('.variation-item') || [];
+        const weightItems = cells[10]?.querySelectorAll('.variation-item') || [];
+        
+        const fixedBaseWeight = fixWeight(baseWeight);
+        
+        for (let v = 0; v < variants.length; v++) {
+          if (isStopped) {
+            contentLog('⏹ 检测到停止信号，中断执行', 'warn');
+            return { success: false, message: '已停止，完成 ' + successCount + ' 个' };
+          }
+          
+          while (isPaused) {
+            await sleep(300);
+            if (isStopped) {
+              return { success: false, message: '已停止，完成 ' + successCount + ' 个' };
+            }
+          }
+          
+          const variant = variants[v];
+          const quantity = variant.quantity;
+          
+          let variantPrice;
+          const hasUnit = /pcs|个|件|套|包|只|对|盒|枚|条|根|块|片/i.test(variant.name);
+          
+          // 如果提取到数量 > 1，即使没有量词也视为有数量（如 "黑色,2"）
+          const hasQuantity = quantity > 1;
+          
+          if (!hasUnit && !hasQuantity) {
+            variantPrice = calculateDynamicPrice(basePrice, rate);
+            contentLog('  变种 ' + (v+1) + ' "' + variant.name + '" 无量词，数量不参与计算 → 价格=' + variantPrice);
+          } else if (quantity > 1) {
+            let calculatedWithQty = basePrice * quantity * rate;
+            if (calculatedWithQty > 501) {
+              variantPrice = calculateDynamicPrice(basePrice, rate);
+              contentLog('  变种 ' + (v+1) + ' "' + variant.name + '" 数量计算后 > 501，数量不参与计算 → 价格=' + variantPrice);
+            } else {
+              variantPrice = calculateDynamicPrice(basePrice * quantity, rate);
+              contentLog('  变种 ' + (v+1) + ' "' + variant.name + '" 数量=' + quantity + ' → 价格=' + variantPrice);
+            }
+          } else {
+            variantPrice = calculateDynamicPrice(basePrice, rate);
+            contentLog('  变种 ' + (v+1) + ' "' + variant.name + '" 无数量 → 价格=' + variantPrice);
+          }
+          
+          try {
+            if (cells[1]) await fillCell(cells[1], title);
+            if (cells[7] && lengthItems[v]) await fillCell(lengthItems[v], length);
+            if (cells[8] && widthItems[v]) await fillCell(widthItems[v], width);
+            if (cells[9] && heightItems[v]) await fillCell(heightItems[v], height);
+            if (cells[6] && priceItems[v]) await fillCell(priceItems[v], variantPrice);
+            if (cells[10] && weightItems[v]) await fillCell(weightItems[v], String(fixedBaseWeight));
+            
+            successCount++;
+            contentLog('  ✅ 变种 ' + (v+1) + '/' + variants.length + ' 完成');
+            
+            chrome.runtime.sendMessage({
+              action: 'progress',
+              current: i + 1,
+              total: totalProducts
+            }).catch(() => {});
+            
+            await sleep(interval * 1000);
+          } catch (err) {
+            if (err.message === '已停止') {
+              contentLog('⏹ 填写被停止', 'warn');
+              return { success: false, message: '已停止，完成 ' + successCount + ' 个' };
+            }
+            contentLog('  ❌ 变种 ' + (v+1) + ' 失败: ' + err.message, 'error');
+          }
+        }
+        contentLog('✅ 商品 ' + (i+1) + ' 完成 (' + variants.length + ' 个变种)');
+      }
+      
+      contentLog('🎉 所有商品填写完成，请手动点击"保存"按钮确认', 'success');
+      return { success: true, message: '完成 ' + successCount + ' 个商品，请手动保存' };
+    } catch (err) {
+      contentLog('❌ 异常: ' + err.message, 'error');
+      return { success: false, message: err.message };
+    }
+  }
 
   function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  contentLog('✅ Content script 已加载 (v2.8.3)');
+  contentLog('✅ Content script 已加载 (v2.9)');
+  contentLog('📍 支持断点续填 · 自定义起始位置');
 })();

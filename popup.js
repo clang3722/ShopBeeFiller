@@ -1,4 +1,4 @@
-// popup.js - v2.8.3
+// popup.js - v2.9
 let isRunning = false;
 let isPaused = false;
 let currentTabId = null;
@@ -7,12 +7,52 @@ const fileInput = document.getElementById('fileInput');
 const rateInput = document.getElementById('rateInput');
 const intervalInput = document.getElementById('intervalInput');
 const thresholdInput = document.getElementById('thresholdInput');
+const startRowInput = document.getElementById('startRowInput');
+const startColInput = document.getElementById('startColInput');
 const startBtn = document.getElementById('startBtn');
 const pauseBtn = document.getElementById('pauseBtn');
 const stopBtn = document.getElementById('stopBtn');
 const statusText = document.getElementById('statusText');
 const progressText = document.getElementById('progressText');
 const logArea = document.getElementById('logArea');
+
+// ============================================================
+// 状态持久化
+// ============================================================
+
+function saveState() {
+  chrome.storage.local.set({
+    runningState: {
+      isRunning: isRunning,
+      isPaused: isPaused,
+      currentTabId: currentTabId
+    }
+  });
+}
+
+function loadState() {
+  chrome.storage.local.get(['runningState'], (result) => {
+    if (result.runningState) {
+      const state = result.runningState;
+      isRunning = state.isRunning || false;
+      isPaused = state.isPaused || false;
+      currentTabId = state.currentTabId || null;
+      
+      if (isRunning) {
+        startBtn.disabled = true;
+        pauseBtn.disabled = false;
+        stopBtn.disabled = false;
+        statusText.textContent = isPaused ? '⏸ 已暂停' : '🔄 运行中...';
+        statusText.className = isPaused ? 'status paused' : 'status running';
+        pauseBtn.textContent = isPaused ? '▶ 继续' : '⏸ 暂停';
+      }
+    }
+  });
+}
+
+window.addEventListener('beforeunload', () => {
+  saveState();
+});
 
 // ============================================================
 // 保存和加载设置
@@ -22,7 +62,10 @@ function saveSettings() {
   const settings = {
     rate: rateInput.value || '0.62',
     interval: intervalInput.value || '0.4',
-    threshold: thresholdInput.value || '80'
+    threshold: thresholdInput.value || '80',
+    startRow: startRowInput.value || '1',
+    startCol: startColInput.value || 'A',
+    lastFile: fileInput.files && fileInput.files[0] ? fileInput.files[0].name : ''
   };
   chrome.storage.local.set({ shopeeSettings: settings });
 }
@@ -34,6 +77,8 @@ function loadSettings() {
       if (settings.rate) rateInput.value = settings.rate;
       if (settings.interval) intervalInput.value = settings.interval;
       if (settings.threshold) thresholdInput.value = settings.threshold;
+      if (settings.startRow) startRowInput.value = settings.startRow;
+      if (settings.startCol) startColInput.value = settings.startCol;
     }
   });
 }
@@ -41,6 +86,8 @@ function loadSettings() {
 rateInput.addEventListener('change', saveSettings);
 intervalInput.addEventListener('change', saveSettings);
 thresholdInput.addEventListener('change', saveSettings);
+startRowInput.addEventListener('change', saveSettings);
+startColInput.addEventListener('change', saveSettings);
 
 // ============================================================
 // 日志函数
@@ -49,6 +96,7 @@ thresholdInput.addEventListener('change', saveSettings);
 function log(message, type = 'info') {
   const time = new Date().toLocaleTimeString();
   const entry = `[${time}] ${message}`;
+  
   const div = document.createElement('div');
   div.textContent = entry;
   div.className = type;
@@ -61,6 +109,14 @@ function log(message, type = 'info') {
     if (logs.length > 200) logs.shift();
     chrome.storage.local.set({ logs: logs });
   });
+  
+  if (currentTabId) {
+    chrome.tabs.sendMessage(currentTabId, {
+      action: 'log',
+      message: message,
+      type: type
+    }).catch(() => {});
+  }
 }
 
 function loadLogs() {
@@ -117,9 +173,10 @@ async function ensureContentScript(tabId) {
   }
 }
 
-async function injectFillScript(rows, rate, interval, threshold) {
+async function injectFillScript(rows, rate, interval, threshold, startRow, startCol) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   currentTabId = tab.id;
+  saveState();
   
   if (!tab.url || !tab.url.includes('dianxiaomi.com')) {
     return { success: false, message: '请在店小蜜页面使用' };
@@ -140,7 +197,7 @@ async function injectFillScript(rows, rate, interval, threshold) {
     
     chrome.tabs.sendMessage(tab.id, {
       action: 'startFill',
-      data: { rows, rate, interval, threshold }
+      data: { rows, rate, interval, threshold, startRow, startCol }
     }, (response) => {
       if (!isResolved) {
         isResolved = true;
@@ -197,6 +254,8 @@ startBtn.addEventListener('click', async () => {
   const rate = parseFloat(rateInput.value) || 0.62;
   const interval = parseFloat(intervalInput.value) || 0.4;
   const threshold = parseFloat(thresholdInput.value) || 80;
+  const startRow = parseInt(startRowInput.value) || 1;
+  const startCol = startColInput.value || 'A';
   
   try {
     log('📖 正在读取 Excel...');
@@ -209,6 +268,7 @@ startBtn.addEventListener('click', async () => {
     
     log('✅ 读取到 ' + rows.length + ' 行数据', 'success');
     log('⚡ 动态阈值: ' + threshold);
+    log('📍 起始行: ' + startRow + ', 起始列: ' + startCol);
     
     isRunning = true;
     startBtn.disabled = true;
@@ -217,8 +277,9 @@ startBtn.addEventListener('click', async () => {
     statusText.textContent = '🔄 运行中...';
     statusText.className = 'status running';
     progressText.textContent = '处理中...';
+    saveState();
     
-    const result = await injectFillScript(rows, rate, interval, threshold);
+    const result = await injectFillScript(rows, rate, interval, threshold, startRow, startCol);
     
     if (result && result.success) {
       log('✅ ' + result.message, 'success');
@@ -240,6 +301,7 @@ startBtn.addEventListener('click', async () => {
     pauseBtn.disabled = true;
     stopBtn.disabled = true;
     pauseBtn.textContent = '⏸ 暂停';
+    saveState();
   }
 });
 
@@ -250,6 +312,7 @@ pauseBtn.addEventListener('click', () => {
   pauseBtn.textContent = isPaused ? '▶ 继续' : '⏸ 暂停';
   statusText.textContent = isPaused ? '⏸ 已暂停' : '🔄 运行中...';
   statusText.className = isPaused ? 'status paused' : 'status running';
+  saveState();
   
   chrome.tabs.sendMessage(currentTabId, {
     action: isPaused ? 'pause' : 'resume'
@@ -267,6 +330,7 @@ stopBtn.addEventListener('click', () => {
   pauseBtn.disabled = true;
   stopBtn.disabled = true;
   pauseBtn.textContent = '⏸ 暂停';
+  saveState();
   
   chrome.tabs.sendMessage(currentTabId, {
     action: 'stop'
@@ -288,6 +352,7 @@ document.addEventListener('keydown', (e) => {
 fileInput.addEventListener('change', () => {
   if (fileInput.files && fileInput.files[0]) {
     log('📂 已选择：' + fileInput.files[0].name, 'info');
+    saveSettings();
   }
 });
 
@@ -296,6 +361,10 @@ fileInput.addEventListener('change', () => {
 // ============================================================
 
 loadSettings();
+loadState();
 loadLogs();
-log('✅ 准备就绪，请选择 Excel 文件', 'success');
-log('💡 所有设置自动保存', 'info');
+
+if (logArea.children.length === 0) {
+  log('✅ 准备就绪，请选择 Excel 文件', 'success');
+  log('💡 所有设置自动保存，关闭面板后状态保留', 'info');
+}
