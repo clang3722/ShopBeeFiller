@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+  <title>ShopBeeFiller</title>
+  <script src="xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>📦 ShopBeeFiller <span class="badge">v2.8.3</span></h2>
+    </div>
+
+    <!-- Excel 文件 -->
+    <div class="form-group">
+      <label>📂 Excel 文件</label>
+      <input type="file" id="fileInput" accept=".xlsx,.xls">
+    </div>
+
+    <!-- 倍率 + 间隔 -->
+    <div class="form-row">
+      <div class="form-group">
+        <label>💰 申报价倍率</label>
+        <input type="number" id="rateInput" value="5" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>⏱ 填写间隔（秒）</label>
+        <input type="number" id="intervalInput" value="0.4" step="0.1">
+      </div>
+    </div>
+
+    <!-- 动态阈值 -->
+    <div class="form-group">
+      <label>⚡ 动态阈值</label>
+      <div class="threshold-row">
+        <input type="number" id="thresholdInput" value="80" step="5" min="10">
+        <span class="threshold-hint">超过此值自动降倍率（5→4→3）</span>
+      </div>
+    </div>
+
+    <!-- 按钮 -->
+    <div class="btn-row">
+      <button class="btn btn-start" id="startBtn">▶ 开始</button>
+      <button class="btn btn-pause" id="pauseBtn" disabled>⏸ 暂停</button>
+      <button class="btn btn-stop" id="stopBtn" disabled>⏹ 停止</button>
+    </div>
+
+    <!-- 状态 -->
+    <div class="status-bar">
+      <span class="status" id="statusText">✅ 等待开始</span>
+      <span id="progressText"></span>
+    </div>
+
+    <!-- 日志 -->
+    <div id="logArea">📋 日志将显示在这里...</div>
+
+    <!-- 功能说明 -->
+    <div class="collapse">
+      <div class="collapse-header" id="guideToggle">
+        📖 功能概览 & 表格说明
+        <span class="arrow" id="guideArrow">▼</span>
+      </div>
+      <div class="collapse-body" id="guideBody">
+        <div class="section-title">📊 表格格式（5列）：</div>
+        <div class="row"><span class="col">A列</span><span class="desc">标题（必填）</span></div>
+        <div class="row"><span class="col">B列</span><span class="desc">图片（可留空）</span></div>
+        <div class="row"><span class="col">C列</span><span class="desc">尺寸（必填，格式：<span class="highlight">长*宽*高</span>）</span></div>
+        <div class="row"><span class="col">D列</span><span class="desc">重量（必填，单位 g）</span></div>
+        <div class="row"><span class="col">E列</span><span class="desc">进货价（必填）</span></div>
+        
+        <div class="section-title">⚙️ 自动功能：</div>
+        <div class="row"><span class="col">•</span><span class="desc">自动识别页面变种数量</span></div>
+        <div class="row"><span class="col">•</span><span class="desc">智能提取数量（量词优先，就近查找数字）</span></div>
+        <div class="row"><span class="col">•</span><span class="desc">动态倍率：超过阈值自动降倍率（5→4→3）</span></div>
+        <div class="row"><span class="col">•</span><span class="desc">智能修正：价格&lt;4→4，重量&gt;150→150，重量=1→2</span></div>
+        
+        <div class="section-title warning-title">⚠️ 注意事项：</div>
+        <div class="row"><span class="col">•</span><span class="desc warning">填写完成后请 <strong>手动核对数据</strong>，确认无误后再点击「保存」</span></div>
+        <div class="row"><span class="col">•</span><span class="desc warning">所有设置 <strong>自动保存</strong>，下次打开无需重设</span></div>
+        <div class="row"><span class="col">•</span><span class="desc">快捷键：<kbd>F8</kbd> 暂停/继续 · <kbd>Esc</kbd> 停止</span></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div>© 2026 <strong>LanMay Studio</strong> · clang</div>
+      <div class="protocol">License: CC BY 4.0</div>
+    </div>
+  </div>
+
+  <script src="guide.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
