@@ -1,4 +1,4 @@
-// content.js - v2.9
+// content.js - v2.9.2 (纯数字识别)
 // (c) 2026 LanMay Studio · clang
 // License: CC BY 4.0
 
@@ -16,7 +16,6 @@
   let totalCount = 0;
   let THRESHOLD = 80;
   
-  // 断点续填相关
   let currentRowIndex = 0;
   let startRow = 1;
   let rowsData = [];
@@ -133,87 +132,18 @@
   }
 
   // ============================================================
-  // 数量提取（不区分大小写 + 末尾数字）
+  // 数量提取：纯数字，取最后一个
   // ============================================================
 
   function extractQuantity(name) {
-    const units = ['pcs', '个', '件', '套', '包', '只', '对', '盒', '枚', '条', '根', '块', '片'];
-    
-    let bestUnit = null;
-    let bestIndex = -1;
-    let bestUnitLength = 0;
-    
-    for (const unit of units) {
-      // 不区分大小写查找
-      let index = name.toLowerCase().indexOf(unit.toLowerCase());
-      if (index !== -1) {
-        let lastIndex = name.toLowerCase().lastIndexOf(unit.toLowerCase());
-        if (lastIndex > bestIndex) {
-          bestIndex = lastIndex;
-          bestUnit = unit;
-          bestUnitLength = unit.length;
-        }
-      }
-    }
-    
-    if (bestUnit !== null && bestIndex !== -1) {
-      let foundNumber = false;
-      
-      // 向左查找
-      let leftIndex = bestIndex - 1;
-      let leftDigits = '';
-      while (leftIndex >= 0) {
-        const char = name[leftIndex];
-        if (char >= '0' && char <= '9') {
-          leftDigits = char + leftDigits;
-          leftIndex--;
-          foundNumber = true;
-        } else if (char === ',' || char === ' ' || char === '(' || char === ')' || char === '-') {
-          leftIndex--;
-          continue;
-        } else {
-          break;
-        }
-      }
-      
-      if (foundNumber && leftDigits.length > 0) {
-        const num = parseInt(leftDigits, 10);
-        return num;
-      }
-      
-      // 向右查找
-      let rightIndex = bestIndex + bestUnitLength;
-      let rightDigits = '';
-      while (rightIndex < name.length) {
-        const char = name[rightIndex];
-        if (char >= '0' && char <= '9') {
-          rightDigits = rightDigits + char;
-          rightIndex++;
-          foundNumber = true;
-        } else if (char === ',' || char === ' ' || char === '(' || char === ')' || char === '-') {
-          rightIndex++;
-          continue;
-        } else {
-          break;
-        }
-      }
-      
-      if (foundNumber && rightDigits.length > 0) {
-        const num = parseInt(rightDigits, 10);
-        return num;
-      }
-    }
-    
-    // 末尾数字（如 "黑色,2"）
-    const trailingNumber = name.match(/,(\d+)$|(\d+)$/);
-    if (trailingNumber) {
-      const num = parseInt(trailingNumber[1] || trailingNumber[2], 10);
+    const numbers = name.match(/\d+/g);
+    if (numbers) {
+      const num = parseInt(numbers[numbers.length - 1], 10);
       if (num <= 200) {
-        contentLog('  检测到末尾数字: ' + num);
+        contentLog('  提取数字: ' + num);
         return num;
       }
     }
-    
     return 1;
   }
 
@@ -321,7 +251,6 @@
         return { success: false, message: '未找到商品数据行' };
       }
       
-      // 从起始行开始
       const startIdx = Math.max(0, Math.min(startRow - 1, rows.length - 1));
       currentRowIndex = startIdx;
       
@@ -418,15 +347,8 @@
           const quantity = variant.quantity;
           
           let variantPrice;
-          const hasUnit = /pcs|个|件|套|包|只|对|盒|枚|条|根|块|片/i.test(variant.name);
           
-          // 如果提取到数量 > 1，即使没有量词也视为有数量（如 "黑色,2"）
-          const hasQuantity = quantity > 1;
-          
-          if (!hasUnit && !hasQuantity) {
-            variantPrice = calculateDynamicPrice(basePrice, rate);
-            contentLog('  变种 ' + (v+1) + ' "' + variant.name + '" 无量词，数量不参与计算 → 价格=' + variantPrice);
-          } else if (quantity > 1) {
+          if (quantity > 1) {
             let calculatedWithQty = basePrice * quantity * rate;
             if (calculatedWithQty > 501) {
               variantPrice = calculateDynamicPrice(basePrice, rate);
@@ -481,6 +403,6 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  contentLog('✅ Content script 已加载 (v2.9)');
-  contentLog('📍 支持断点续填 · 自定义起始位置');
+  contentLog('✅ Content script 已加载 (v2.9.2)');
+  contentLog('📍 纯数字识别 · 断点续填');
 })();
