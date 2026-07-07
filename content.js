@@ -1,4 +1,4 @@
-// content.js - v2.9.2 (纯数字识别)
+// content.js - v2.9.3
 // (c) 2026 LanMay Studio · clang
 // License: CC BY 4.0
 
@@ -132,18 +132,72 @@
   }
 
   // ============================================================
-  // 数量提取：纯数字，取最后一个
+  // 数量提取：中文数字 + 英文数字 + 阿拉伯数字
   // ============================================================
 
   function extractQuantity(name) {
+    // 1. 中文数字转阿拉伯数字
+    const chineseMap = {
+      '一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
+      '六': 6, '七': 7, '八': 8, '九': 9, '十': 10,
+      '百': 100, '千': 1000
+    };
+    
+    const cnMatch = name.match(/[一二三四五六七八九十百千]+/);
+    if (cnMatch) {
+      let num = 0;
+      let temp = 0;
+      for (const char of cnMatch[0]) {
+        const val = chineseMap[char];
+        if (val >= 10) {
+          temp = temp === 0 ? val : temp * val;
+        } else {
+          if (temp === 0) {
+            temp = val;
+          } else if (temp >= 10) {
+            num += temp * val;
+            temp = 0;
+          } else {
+            temp = temp + val;
+          }
+        }
+      }
+      if (temp > 0) {
+        num += temp;
+      }
+      if (num > 0 && num <= 200) {
+        contentLog('  中文数字: ' + num);
+        return num;
+      }
+    }
+    
+    // 2. 英文数字转阿拉伯数字
+    const enMap = {
+      'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+      'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+      'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14, 'fifteen': 15,
+      'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19, 'twenty': 20
+    };
+    
+    const enMatch = name.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\b/i);
+    if (enMatch) {
+      const num = enMap[enMatch[1].toLowerCase()];
+      if (num > 0 && num <= 200) {
+        contentLog('  英文数字: ' + num);
+        return num;
+      }
+    }
+    
+    // 3. 阿拉伯数字（兜底）
     const numbers = name.match(/\d+/g);
     if (numbers) {
       const num = parseInt(numbers[numbers.length - 1], 10);
       if (num <= 200) {
-        contentLog('  提取数字: ' + num);
+        contentLog('  阿拉伯数字: ' + num);
         return num;
       }
     }
+    
     return 1;
   }
 
@@ -403,6 +457,6 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  contentLog('✅ Content script 已加载 (v2.9.2)');
-  contentLog('📍 纯数字识别 · 断点续填');
+  contentLog('✅ Content script 已加载 (v2.9.3)');
+  contentLog('📍 中文/英文/阿拉伯数字识别 · 断点续填');
 })();
