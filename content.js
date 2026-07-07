@@ -1,4 +1,4 @@
-// content.js - v2.9.3
+// content.js - v2.9.4
 // (c) 2026 LanMay Studio · clang
 // License: CC BY 4.0
 
@@ -132,53 +132,66 @@
   }
 
   // ============================================================
-  // 数量提取：中文数字 + 英文数字 + 阿拉伯数字
+  // 数量提取：量词优先 → 中文/英文 → 纯数字
   // ============================================================
 
   function extractQuantity(name) {
-    // 1. 中文数字转阿拉伯数字
+    // 1. 量词匹配（优先）
+    // 数字 + 量词（中英文）
+    const unitPattern = /(\d+)\s*(个|件|套|包|只|对|盒|枚|条|根|块|片|pcs|pc)/i;
+    const match = name.match(unitPattern);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num <= 200) {
+        contentLog('  匹配量词: ' + num);
+        return num;
+      }
+    }
+    
+    // 2. 量词 + 数字（中英文）
+    const unitFirstPattern = /(个|件|套|包|只|对|盒|枚|条|根|块|片|pcs|pc)\s*(\d+)/i;
+    const match2 = name.match(unitFirstPattern);
+    if (match2) {
+      const num = parseInt(match2[2], 10);
+      if (num <= 200) {
+        contentLog('  匹配量词(前): ' + num);
+        return num;
+      }
+    }
+    
+    // 3. 中文数字（一二三）
     const chineseMap = {
       '一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
       '六': 6, '七': 7, '八': 8, '九': 9, '十': 10,
       '百': 100, '千': 1000
     };
-    
     const cnMatch = name.match(/[一二三四五六七八九十百千]+/);
     if (cnMatch) {
-      let num = 0;
-      let temp = 0;
+      let num = 0, temp = 0;
       for (const char of cnMatch[0]) {
         const val = chineseMap[char];
         if (val >= 10) {
           temp = temp === 0 ? val : temp * val;
         } else {
-          if (temp === 0) {
-            temp = val;
-          } else if (temp >= 10) {
-            num += temp * val;
-            temp = 0;
-          } else {
-            temp = temp + val;
-          }
+          if (temp === 0) temp = val;
+          else if (temp >= 10) { num += temp * val; temp = 0; }
+          else temp = temp + val;
         }
       }
-      if (temp > 0) {
-        num += temp;
-      }
+      if (temp > 0) num += temp;
       if (num > 0 && num <= 200) {
         contentLog('  中文数字: ' + num);
         return num;
       }
     }
     
-    // 2. 英文数字转阿拉伯数字
+    // 4. 英文数字（one two three）
     const enMap = {
       'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
       'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
       'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14, 'fifteen': 15,
       'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19, 'twenty': 20
     };
-    
     const enMatch = name.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\b/i);
     if (enMatch) {
       const num = enMap[enMatch[1].toLowerCase()];
@@ -188,12 +201,12 @@
       }
     }
     
-    // 3. 阿拉伯数字（兜底）
+    // 5. 纯数字（兜底）
     const numbers = name.match(/\d+/g);
     if (numbers) {
       const num = parseInt(numbers[numbers.length - 1], 10);
       if (num <= 200) {
-        contentLog('  阿拉伯数字: ' + num);
+        contentLog('  纯数字: ' + num);
         return num;
       }
     }
@@ -457,6 +470,6 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  contentLog('✅ Content script 已加载 (v2.9.3)');
-  contentLog('📍 中文/英文/阿拉伯数字识别 · 断点续填');
+  contentLog('✅ Content script 已加载 (v2.9.4)');
+  contentLog('📍 量词优先 · 中文/英文/数字识别 · 断点续填');
 })();
