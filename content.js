@@ -127,7 +127,7 @@
 
   function extractQuantity(name) {
     // 量词列表（按长度降序排列，优先匹配多字符量词）
-    const units = ['pcs', '个', '件', '套', '包', '只', '对', '盒', '枚', '条', '根', '块', '片'];
+    const units = ['pcs','PCS','pCs','pcS','Pcs','PCs','PcS','P','p', '个', '件', '套', '包', '只', '对', '盒', '枚', '条', '根', '块', '片'];
     
     // 在变种名称中查找量词的位置
     let bestUnit = null;
@@ -326,7 +326,7 @@
           let variantPrice;
           
           // 检查变种名称是否有量词
-          const hasUnit = /pcs|个|件|套|包|只|对|盒|枚|条|根|块|片/.test(variant.name);
+          const units = ['pcs', 'PCS', 'pCs', 'pcS', 'Pcs', 'PCs', 'PcS', '个', '件', '套', '包', '只', '对', '盒', '枚', '条', '根', '块', '片'];
           
           if (!hasUnit) {
             // 没有量词，数量不参与计算
