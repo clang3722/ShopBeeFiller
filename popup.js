@@ -1,4 +1,4 @@
-// popup.js - v2.9.4
+// popup.js - v2.9.6
 let isRunning = false;
 let isPaused = false;
 let currentTabId = null;
@@ -168,6 +168,7 @@ async function injectFillScript(rows, rate, interval, threshold, startRow, start
   return new Promise((resolve) => {
     let isResolved = false;
     
+    // 超时时间改为 600 秒（10分钟）
     const timeout = setTimeout(() => {
       if (!isResolved) {
         isResolved = true;

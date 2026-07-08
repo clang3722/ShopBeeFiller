@@ -10,16 +10,14 @@
 <body>
   <div class="container">
     <div class="header">
-      <h2>📦 ShopBeeFiller <span class="badge">v2.9</span></h2>
+      <h2>📦 ShopBeeFiller <span class="badge">v2.9.6</span></h2>
     </div>
 
-    <!-- Excel 文件 -->
     <div class="form-group">
       <label>📂 Excel 文件</label>
       <input type="file" id="fileInput" accept=".xlsx,.xls">
     </div>
 
-    <!-- 倍率 + 间隔 -->
     <div class="form-row">
       <div class="form-group">
         <label>💰 申报价倍率</label>
@@ -31,7 +29,6 @@
       </div>
     </div>
 
-    <!-- 动态阈值 -->
     <div class="form-group">
       <label>⚡ 动态阈值</label>
       <div class="threshold-row">
@@ -40,7 +37,6 @@
       </div>
     </div>
 
-    <!-- 起始行 + 起始列 -->
     <div class="form-row">
       <div class="form-group">
         <label>📍 起始行</label>
@@ -63,23 +59,19 @@
       </div>
     </div>
 
-    <!-- 按钮 -->
     <div class="btn-row">
       <button class="btn btn-start" id="startBtn">▶ 开始</button>
       <button class="btn btn-pause" id="pauseBtn" disabled>⏸ 暂停</button>
       <button class="btn btn-stop" id="stopBtn" disabled>⏹ 停止</button>
     </div>
 
-    <!-- 状态 -->
     <div class="status-bar">
       <span class="status" id="statusText">✅ 等待开始</span>
       <span id="progressText"></span>
     </div>
 
-    <!-- 日志 -->
     <div id="logArea">📋 日志将显示在这里...</div>
 
-    <!-- 功能说明 -->
     <div class="collapse">
       <div class="collapse-header" id="guideToggle">
         📖 功能概览 & 表格说明
@@ -95,7 +87,7 @@
         
         <div class="section-title">⚙️ 自动功能：</div>
         <div class="row"><span class="col">•</span><span class="desc">自动识别页面变种数量</span></div>
-        <div class="row"><span class="col">•</span><span class="desc">智能提取数量（量词优先 + 末尾数字）</span></div>
+        <div class="row"><span class="col">•</span><span class="desc">智能提取数量（量词优先 + 中文/英文/纯数字）</span></div>
         <div class="row"><span class="col">•</span><span class="desc">动态倍率：超过阈值自动降倍率（5→4→3）</span></div>
         <div class="row"><span class="col">•</span><span class="desc">智能修正：价格&lt;4→4，重量&gt;150→150，重量=1→2</span></div>
         <div class="row"><span class="col">•</span><span class="desc">断点续填：暂停后继续从上次位置开始</span></div>
