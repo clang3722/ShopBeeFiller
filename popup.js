@@ -1,4 +1,4 @@
-// popup.js - v2.9
+// popup.js - v2.9.4
 let isRunning = false;
 let isPaused = false;
 let currentTabId = null;
@@ -15,10 +15,6 @@ const stopBtn = document.getElementById('stopBtn');
 const statusText = document.getElementById('statusText');
 const progressText = document.getElementById('progressText');
 const logArea = document.getElementById('logArea');
-
-// ============================================================
-// 状态持久化
-// ============================================================
 
 function saveState() {
   chrome.storage.local.set({
@@ -54,13 +50,9 @@ window.addEventListener('beforeunload', () => {
   saveState();
 });
 
-// ============================================================
-// 保存和加载设置
-// ============================================================
-
 function saveSettings() {
   const settings = {
-    rate: rateInput.value || '0.62',
+    rate: rateInput.value || '5',
     interval: intervalInput.value || '0.4',
     threshold: thresholdInput.value || '80',
     startRow: startRowInput.value || '1',
@@ -88,10 +80,6 @@ intervalInput.addEventListener('change', saveSettings);
 thresholdInput.addEventListener('change', saveSettings);
 startRowInput.addEventListener('change', saveSettings);
 startColInput.addEventListener('change', saveSettings);
-
-// ============================================================
-// 日志函数
-// ============================================================
 
 function log(message, type = 'info') {
   const time = new Date().toLocaleTimeString();
@@ -133,10 +121,6 @@ function loadLogs() {
   });
 }
 
-// ============================================================
-// 读取 Excel
-// ============================================================
-
 function readExcelFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -156,10 +140,6 @@ function readExcelFile(file) {
     reader.readAsArrayBuffer(file);
   });
 }
-
-// ============================================================
-// 注入脚本
-// ============================================================
 
 async function ensureContentScript(tabId) {
   try {
@@ -191,9 +171,9 @@ async function injectFillScript(rows, rate, interval, threshold, startRow, start
     const timeout = setTimeout(() => {
       if (!isResolved) {
         isResolved = true;
-        resolve({ success: false, message: '操作超时（120秒），请检查页面是否正常' });
+        resolve({ success: false, message: '操作超时（600秒），请检查页面是否正常' });
       }
-    }, 120000);
+    }, 600000);
     
     chrome.tabs.sendMessage(tab.id, {
       action: 'startFill',
@@ -213,10 +193,6 @@ async function injectFillScript(rows, rate, interval, threshold, startRow, start
   });
 }
 
-// ============================================================
-// 消息监听
-// ============================================================
-
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'log') {
     const type = message.type === 'error' ? 'error' : 
@@ -234,10 +210,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
-// ============================================================
-// 按钮事件
-// ============================================================
-
 startBtn.addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
@@ -251,7 +223,7 @@ startBtn.addEventListener('click', async () => {
     return;
   }
   
-  const rate = parseFloat(rateInput.value) || 0.62;
+  const rate = parseFloat(rateInput.value) || 5;
   const interval = parseFloat(intervalInput.value) || 0.4;
   const threshold = parseFloat(thresholdInput.value) || 80;
   const startRow = parseInt(startRowInput.value) || 1;
@@ -355,10 +327,6 @@ fileInput.addEventListener('change', () => {
     saveSettings();
   }
 });
-
-// ============================================================
-// 初始化
-// ============================================================
 
 loadSettings();
 loadState();

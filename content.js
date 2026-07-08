@@ -1,4 +1,4 @@
-// content.js - v2.9.4
+// content.js - v2.9.5 (批量填写 + 修复)
 // (c) 2026 LanMay Studio · clang
 // License: CC BY 4.0
 
@@ -13,12 +13,9 @@
 
   let isPaused = false;
   let isStopped = false;
-  let totalCount = 0;
   let THRESHOLD = 80;
-  
   let currentRowIndex = 0;
   let startRow = 1;
-  let rowsData = [];
 
   function contentLog(message, type = 'info') {
     const time = new Date().toLocaleTimeString();
@@ -37,16 +34,14 @@
       isStopped = false;
       THRESHOLD = message.data.threshold || 80;
       startRow = message.data.startRow || 1;
-      rowsData = message.data.rows;
-      currentRowIndex = startRow - 1;
       
-      contentLog('收到指令: ' + rowsData.length + ' 行');
+      contentLog('收到指令: ' + message.data.rows.length + ' 行');
       contentLog('⚡ 动态阈值: ' + THRESHOLD);
       contentLog('📍 起始行: ' + startRow);
       
       (async () => {
         try {
-          const result = await fillAllProducts(rowsData, message.data.rate, message.data.interval);
+          const result = await fillAllProducts(message.data.rows, message.data.rate, message.data.interval);
           sendResponse(result);
         } catch (err) {
           contentLog('异常: ' + err.message, 'error');
@@ -118,13 +113,13 @@
     if (result > THRESHOLD) {
       multiplier = rate * 0.8;
       result = basePrice * multiplier;
-      contentLog('⚡ 价格 > ' + THRESHOLD + '，降为4倍 (倍率: ' + multiplier.toFixed(3) + ')');
+      contentLog('⚡ 价格 > ' + THRESHOLD + '，降为4倍');
     }
     
     if (result > THRESHOLD) {
       multiplier = rate * 0.6;
       result = basePrice * multiplier;
-      contentLog('⚡ 4倍 > ' + THRESHOLD + '，降为3倍 (倍率: ' + multiplier.toFixed(3) + ')');
+      contentLog('⚡ 4倍 > ' + THRESHOLD + '，降为3倍');
     }
     
     if (result < 4) result = 4;
@@ -132,12 +127,11 @@
   }
 
   // ============================================================
-  // 数量提取：量词优先 → 中文/英文 → 纯数字
+  // 数量提取（支持"两"）
   // ============================================================
 
   function extractQuantity(name) {
-    // 1. 量词匹配（优先）
-    // 数字 + 量词（中英文）
+    // 1. 量词匹配
     const unitPattern = /(\d+)\s*(个|件|套|包|只|对|盒|枚|条|根|块|片|pcs|pc)/i;
     const match = name.match(unitPattern);
     if (match) {
@@ -148,7 +142,6 @@
       }
     }
     
-    // 2. 量词 + 数字（中英文）
     const unitFirstPattern = /(个|件|套|包|只|对|盒|枚|条|根|块|片|pcs|pc)\s*(\d+)/i;
     const match2 = name.match(unitFirstPattern);
     if (match2) {
@@ -159,13 +152,13 @@
       }
     }
     
-    // 3. 中文数字（一二三）
+    // 2. 中文数字（包含"两"）
     const chineseMap = {
-      '一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
+      '一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5,
       '六': 6, '七': 7, '八': 8, '九': 9, '十': 10,
       '百': 100, '千': 1000
     };
-    const cnMatch = name.match(/[一二三四五六七八九十百千]+/);
+    const cnMatch = name.match(/[一二两三四五六七八九十百千]+/);
     if (cnMatch) {
       let num = 0, temp = 0;
       for (const char of cnMatch[0]) {
@@ -185,7 +178,7 @@
       }
     }
     
-    // 4. 英文数字（one two three）
+    // 3. 英文数字
     const enMap = {
       'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
       'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
@@ -201,7 +194,7 @@
       }
     }
     
-    // 5. 纯数字（兜底）
+    // 4. 纯数字
     const numbers = name.match(/\d+/g);
     if (numbers) {
       const num = parseInt(numbers[numbers.length - 1], 10);
@@ -243,56 +236,32 @@
   }
 
   // ============================================================
-  // 单元格填写
+  // 批量填写单元格
   // ============================================================
 
-  async function fillCell(cell, value) {
-    if (isStopped) {
-      throw new Error('已停止');
+  function fillCellBatch(cell, value) {
+    if (!cell) return;
+    
+    let input = cell.querySelector('input, textarea');
+    if (input) {
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      return;
     }
     
-    while (isPaused) {
-      await sleep(200);
-      if (isStopped) {
-        throw new Error('已停止');
-      }
+    const editable = cell.querySelector('[contenteditable="true"]');
+    if (editable) {
+      editable.textContent = value;
+      editable.dispatchEvent(new Event('input', { bubbles: true }));
+      return;
     }
     
-    try {
-      cell.scrollIntoView({ block: 'center' });
-      await sleep(150);
-      cell.click();
-      await sleep(100);
-      cell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, view: window }));
-      await sleep(250);
-      
-      let input = cell.querySelector('input, textarea');
-      if (input) {
-        input.focus();
-        input.select();
-        input.value = '';
-        input.value = value;
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-        return;
-      }
-      
-      const editable = cell.querySelector('[contenteditable="true"]');
-      if (editable) {
-        editable.textContent = value;
-        editable.dispatchEvent(new Event('input', { bubbles: true }));
-        return;
-      }
-      cell.textContent = value;
-    } catch (err) {
-      try { cell.textContent = value; } catch (e) {}
-      throw err;
-    }
+    cell.textContent = value;
   }
 
   // ============================================================
-  // 核心填写函数
+  // 核心填写函数（批量版）
   // ============================================================
 
   async function fillAllProducts(rows, rate, interval) {
@@ -322,26 +291,18 @@
       currentRowIndex = startIdx;
       
       let successCount = 0;
-      const totalProducts = rows.length;
+      const totalProducts = Math.min(rows.length, dataRows.length);
       
-      contentLog('📍 从第 ' + (currentRowIndex + 1) + ' 行开始填写');
+      // ============================================================
+      // 第一步：收集所有数据
+      // ============================================================
       
-      for (let i = currentRowIndex; i < totalProducts; i++) {
+      const fillQueue = [];
+      
+      for (let i = startIdx; i < totalProducts; i++) {
         if (isStopped) {
           contentLog('⏹ 检测到停止信号，中断执行', 'warn');
           return { success: false, message: '已停止，完成 ' + successCount + ' 个' };
-        }
-        
-        while (isPaused) {
-          await sleep(300);
-          if (isStopped) {
-            return { success: false, message: '已停止，完成 ' + successCount + ' 个' };
-          }
-        }
-        
-        if (i >= dataRows.length) {
-          contentLog('⚠️ 页面行数不足，跳过第 ' + (i+1) + ' 行');
-          continue;
         }
         
         const row = dataRows[i];
@@ -353,12 +314,8 @@
         const baseWeight = parseFloat(data[3]) || 0;
         const basePrice = parseFloat(data[4]) || 0;
         
-        if (!title) {
-          contentLog('⚠️ 第 ' + (i+1) + ' 行标题为空，跳过');
-          continue;
-        }
-        if (!size || !size.includes('*')) {
-          contentLog('⚠️ 第 ' + (i+1) + ' 行尺寸格式错误，跳过');
+        if (!title || !size || !size.includes('*')) {
+          contentLog('⚠️ 第 ' + (i+1) + ' 行数据不完整，跳过');
           continue;
         }
         
@@ -370,21 +327,31 @@
         const variants = getVariantsFromPage(row);
         const variantCount = variants.length;
         
-        contentLog('商品 ' + (i+1) + ': ' + title.substring(0, 20) + '... (' + variantCount + ' 个变种)');
+        contentLog('📦 商品 ' + (i+1) + ': ' + title.substring(0, 20) + '... (' + variantCount + ' 个变种)');
         currentRowIndex = i;
         
         if (variantCount === 0) {
-          if (isStopped) break;
           const finalWeight = fixWeight(baseWeight);
           const finalPrice = calculateDynamicPrice(basePrice, rate);
-          if (cells[1]) await fillCell(cells[1], title);
-          if (cells[6]) await fillCell(cells[6], finalPrice);
-          if (cells[7]) await fillCell(cells[7], length);
-          if (cells[8]) await fillCell(cells[8], width);
-          if (cells[9]) await fillCell(cells[9], height);
-          if (cells[10]) await fillCell(cells[10], String(finalWeight));
+          fillQueue.push({
+            cells: {
+              title: cells[1],
+              price: cells[6],
+              length: cells[7],
+              width: cells[8],
+              height: cells[9],
+              weight: cells[10]
+            },
+            values: {
+              title: title,
+              price: finalPrice,
+              length: length,
+              width: width,
+              height: height,
+              weight: String(finalWeight)
+            }
+          });
           successCount++;
-          contentLog('✅ 商品 ' + (i+1) + ' 完成（无变种）');
           continue;
         }
         
@@ -398,68 +365,104 @@
         const fixedBaseWeight = fixWeight(baseWeight);
         
         for (let v = 0; v < variants.length; v++) {
-          if (isStopped) {
-            contentLog('⏹ 检测到停止信号，中断执行', 'warn');
-            return { success: false, message: '已停止，完成 ' + successCount + ' 个' };
-          }
-          
-          while (isPaused) {
-            await sleep(300);
-            if (isStopped) {
-              return { success: false, message: '已停止，完成 ' + successCount + ' 个' };
-            }
-          }
-          
           const variant = variants[v];
           const quantity = variant.quantity;
           
           let variantPrice;
-          
           if (quantity > 1) {
             let calculatedWithQty = basePrice * quantity * rate;
             if (calculatedWithQty > 501) {
               variantPrice = calculateDynamicPrice(basePrice, rate);
-              contentLog('  变种 ' + (v+1) + ' "' + variant.name + '" 数量计算后 > 501，数量不参与计算 → 价格=' + variantPrice);
             } else {
               variantPrice = calculateDynamicPrice(basePrice * quantity, rate);
-              contentLog('  变种 ' + (v+1) + ' "' + variant.name + '" 数量=' + quantity + ' → 价格=' + variantPrice);
             }
           } else {
             variantPrice = calculateDynamicPrice(basePrice, rate);
-            contentLog('  变种 ' + (v+1) + ' "' + variant.name + '" 无数量 → 价格=' + variantPrice);
           }
           
-          try {
-            if (cells[1]) await fillCell(cells[1], title);
-            if (cells[7] && lengthItems[v]) await fillCell(lengthItems[v], length);
-            if (cells[8] && widthItems[v]) await fillCell(widthItems[v], width);
-            if (cells[9] && heightItems[v]) await fillCell(heightItems[v], height);
-            if (cells[6] && priceItems[v]) await fillCell(priceItems[v], variantPrice);
-            if (cells[10] && weightItems[v]) await fillCell(weightItems[v], String(fixedBaseWeight));
-            
-            successCount++;
-            contentLog('  ✅ 变种 ' + (v+1) + '/' + variants.length + ' 完成');
-            
-            chrome.runtime.sendMessage({
-              action: 'progress',
-              current: i + 1,
-              total: totalProducts
-            }).catch(() => {});
-            
-            await sleep(interval * 1000);
-          } catch (err) {
-            if (err.message === '已停止') {
-              contentLog('⏹ 填写被停止', 'warn');
-              return { success: false, message: '已停止，完成 ' + successCount + ' 个' };
+          fillQueue.push({
+            cells: {
+              title: cells[1],
+              price: priceItems[v],
+              length: lengthItems[v],
+              width: widthItems[v],
+              height: heightItems[v],
+              weight: weightItems[v]
+            },
+            values: {
+              title: title,
+              price: variantPrice,
+              length: length,
+              width: width,
+              height: height,
+              weight: String(fixedBaseWeight)
             }
-            contentLog('  ❌ 变种 ' + (v+1) + ' 失败: ' + err.message, 'error');
-          }
+          });
+          successCount++;
         }
-        contentLog('✅ 商品 ' + (i+1) + ' 完成 (' + variants.length + ' 个变种)');
       }
       
+      contentLog('📦 共 ' + fillQueue.length + ' 个变种待填写');
+      
+      if (isStopped) {
+        contentLog('⏹ 检测到停止信号，中断执行', 'warn');
+        return { success: false, message: '已停止，完成 ' + successCount + ' 个' };
+      }
+      
+      // ============================================================
+      // 第二步：批量填写
+      // ============================================================
+      
+      contentLog('⚡ 开始批量填写...');
+      const batchStart = Date.now();
+      
+      let filledCount = 0;
+      for (const item of fillQueue) {
+        if (isStopped) {
+          contentLog('⏹ 检测到停止信号，中断执行', 'warn');
+          return { success: false, message: '已停止，完成 ' + filledCount + ' 个' };
+        }
+        
+        while (isPaused) {
+          await sleep(200);
+          if (isStopped) {
+            return { success: false, message: '已停止，完成 ' + filledCount + ' 个' };
+          }
+        }
+        
+        const { cells, values } = item;
+        
+        try {
+          if (cells.title) fillCellBatch(cells.title, values.title);
+          if (cells.price) fillCellBatch(cells.price, values.price);
+          if (cells.length) fillCellBatch(cells.length, values.length);
+          if (cells.width) fillCellBatch(cells.width, values.width);
+          if (cells.height) fillCellBatch(cells.height, values.height);
+          if (cells.weight) fillCellBatch(cells.weight, values.weight);
+          
+          filledCount++;
+          
+          if (filledCount % 10 === 0 || filledCount === fillQueue.length) {
+            chrome.runtime.sendMessage({
+              action: 'progress',
+              current: filledCount,
+              total: fillQueue.length
+            }).catch(() => {});
+            contentLog('📊 进度: ' + filledCount + '/' + fillQueue.length);
+          }
+          
+          await sleep(50);
+          
+        } catch (err) {
+          contentLog('❌ 填写失败: ' + err.message, 'error');
+        }
+      }
+      
+      const batchTime = ((Date.now() - batchStart) / 1000).toFixed(1);
+      contentLog('⚡ 批量填写完成，耗时 ' + batchTime + ' 秒', 'success');
       contentLog('🎉 所有商品填写完成，请手动点击"保存"按钮确认', 'success');
-      return { success: true, message: '完成 ' + successCount + ' 个商品，请手动保存' };
+      return { success: true, message: '完成 ' + filledCount + ' 个变种，请手动保存' };
+      
     } catch (err) {
       contentLog('❌ 异常: ' + err.message, 'error');
       return { success: false, message: err.message };
@@ -470,6 +473,6 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  contentLog('✅ Content script 已加载 (v2.9.4)');
-  contentLog('📍 量词优先 · 中文/英文/数字识别 · 断点续填');
+  contentLog('✅ Content script 已加载 (v2.9.5 批量版)');
+  contentLog('⚡ 批量填写模式 · 支持"两"');
 })();
