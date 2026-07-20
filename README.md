@@ -1,6 +1,6 @@
 # ShopBeeFiller
 
-> 店小蜜批量编辑商品自动填充表格 · Chrome 扩展
+> 店小秘批量编辑商品自动填充表格 · Chrome 扩展
 
 [![Version](https://img.shields.io/badge/version-2.8.1-blue.svg)](https://github.com/clang3722/ShopBeeFiller)
 [![License](https://img.shields.io/badge/license-CC%20BY%204.0-green.svg)](https://creativecommons.org/licenses/by/4.0/)
@@ -14,9 +14,9 @@
 
 > 本项目全部使用AI完成
 
-**ShopBeeFiller** 是一款专为店小蜜（Dianxiaomi）跨境电商ERP设计的 Chrome 浏览器扩展。
+**ShopBeeFiller** 是一款专为店小秘（Dianxiaomi）跨境电商ERP设计的 Chrome 浏览器扩展。
 
-只需在 Excel 中整理好商品数据，打开店小蜜批量编辑页面，点击「开始」，程序即自动完成全部商品的批量填写，**大幅提升工作效率**。
+只需在 Excel 中整理好商品数据，打开店小秘批量编辑页面，点击「开始」，程序即自动完成全部商品的批量填写，**大幅提升工作效率**。
 
 > ⏱ 原本 **25 件/小时** → 现在只需 **几分钟**
 
@@ -74,7 +74,7 @@ git clone https://github.com/clang3722/ShopBeeFiller.git
 
 步骤 操作
 1 整理 Excel：按格式填写商品数据
-2 登录店小蜜：进入「产品 → 采集箱 → 批量编辑」
+2 登录店小秘：进入「产品 → 采集箱 → 批量编辑」
 3 打开扩展：点击右上角扩展图标，或使用页面悬浮窗 📦
 4 选择文件：选择已填好的 Excel
 5 点击「开始」：程序自动填写
